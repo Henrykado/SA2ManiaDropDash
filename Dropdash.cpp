@@ -6,10 +6,11 @@ int dropdashTimer = 0;
 bool canChargeDropDash = false;
 
 std::string dropdashButton;
+bool fallDash;
 
 void Sonic_ChecksForDamage_r(EntityData1* ed1, EntityData2* ed2, CharObj2Base* co2, SonicCharObj2* sco2)
 {
-	if (ed1->Action == 6) // Jump
+	if (ed1->Action == 6 || (fallDash && ed1->Action == 10)) // Jump or (Fall if fallDash is true)
 	{
 		Buttons buttons;
 		if (dropdashButton == "B")             buttons = Buttons_B;
@@ -63,6 +64,7 @@ extern "C"
 	{
 		const IniFile* config = new IniFile(std::string(path) + "\\config.ini");
 		dropdashButton = config->getString("", "dropdashButton", "Y");
+		fallDash = config->getBool("", "fallDash", false);
 		delete config;
 
 		Sonic_ChecksForDamage_h.Hook(Sonic_ChecksForDamage_r);
