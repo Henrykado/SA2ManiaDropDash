@@ -3,15 +3,14 @@
 
 // Drop Dash variables
 Buttons dropdashButtons;
-float dropdashSpeed = 0.0f;
-int dropdashTimer = 0;
-bool canChargeDropDash = false;
-bool canSomersault = true;
+int dropdashTimer[2] = { 0, 0 };
+bool canChargeDropDash[2] = { false, false };
+
+bool canSomersault[2] = { true, true };
 
 // "Press to Bounce" variables
 Buttons bounceButtons;
-bool canBounce = true;
-bool waitAFrame = false;
+bool canBounce[2] = { true, true };
 
 // config variables
 std::string dropdashButton;
@@ -25,7 +24,7 @@ bool metalCanDropdash;
 // "Sonic New Tricks" compatibility variables
 bool sonicNewTricks = false;
 bool superBounce = false;
-bool shBounce = false;;
+bool shBounce = false;
 Buttons SomersaultButton = Buttons_B;
 Buttons BlackShieldButton = Buttons_Y;
 
@@ -58,7 +57,7 @@ bool canBounce2ElectricBoogaloo(CharObj2Base co2)
 		return true;
 	}
 
-	if (dropdashBounce && canBounce)
+	if (dropdashBounce && canBounce[co2.PlayerNum])
 	{
 		if ((dropdashButtons != Buttons_Action && (dropdashButtons & Controllers[co2.PlayerNum].release)) ||
 			(dropdashButtons == Buttons_Action && Action_Released[co2.PlayerNum]))
@@ -112,7 +111,7 @@ int Sonic_CheckBounceAttack2_r(SonicCharObj2* a1, EntityData1* a2)
 
 int Sonic_Somersault_r(SonicCharObj2* a1, EntityData1* a2, CharObj2Base* a3)
 {
-	if (!canSomersault) return false;
+	if (!canSomersault[a3->PlayerNum]) return false;
 	else return Sonic_Somersault_h.Original(a1, a2, a3);
 }
 
@@ -124,76 +123,71 @@ void Sonic_ChecksForDamage_r(EntityData1* ed1, EntityData2* ed2, CharObj2Base* c
 		return Sonic_ChecksForDamage_h.Original(ed1, ed2, co2, sco2);
 
 
-	if (!canSomersault && ed1->Action != 4)
+	if (!canSomersault[co2->PlayerNum] && ed1->Action != 4)
 		if (Action_Released[co2->PlayerNum])
-			canSomersault = true;
+			canSomersault[co2->PlayerNum] = true;
 
-	if (sonicNewTricks)
-	{
-		if ( SomersaultButton == Buttons_Y || 
-			(ed1->Action == 1 && (SomersaultButton == Buttons_B || SomersaultButton == Buttons_Y) &&
-			SomersaultButton & Controllers[co2->PlayerNum].press) )
-		{
-			canSomersault = true;
-		}
-	}
+	if (sonicNewTricks && SomersaultButton == Buttons_Y)
+		canSomersault[co2->PlayerNum] = true;
 
 
 	if (ed1->Action == 6 || ed1->Action == 70 || (fallDropdash && ed1->Action == 10)) // Jump, Bounce or (Fall if fallDropdash is true)
 	{
-		if (canChargeDropDash == false && (dropdashButtons & Controllers[co2->PlayerNum].press))
+		if (canChargeDropDash[co2->PlayerNum] == false && (dropdashButtons & Controllers[co2->PlayerNum].press))
 		{
-			canChargeDropDash = true;
-			canBounce = true;
+			canChargeDropDash[co2->PlayerNum] = true;
+			canBounce[co2->PlayerNum] = true;
 		}
 
-		if (waitAFrame)
+		if (canChargeDropDash[co2->PlayerNum] && (dropdashButtons & Controllers[co2->PlayerNum].on))
 		{
-			waitAFrame = false;
-			canBounce = true;
+			dropdashTimer[co2->PlayerNum]++;
 		}
-
-		if (canChargeDropDash && (dropdashButtons & Controllers[co2->PlayerNum].on))
-			dropdashTimer++;
-		else if (dropdashTimer > 0) {
-			dropdashTimer = 0;
-			canChargeDropDash = false;
+		else if (dropdashTimer[co2->PlayerNum] > 0) 
+		{
+			dropdashTimer[co2->PlayerNum] = 0;
+			canChargeDropDash[co2->PlayerNum] = false;
 			ed1->Status &= ~Status_Ball;
-			waitAFrame = true; // used to delay setting canBounce to true so the character doesn't immediatly bounce after releasing the drop dash button
 		}
 
-		if (dropdashTimer == 15) 
+		if (dropdashTimer[co2->PlayerNum] == 15)
 		{
 			ed1->Status |= Status_Ball;
 			co2->AnimInfo.Next = 12;
 			if (ed1->Action == 10) ed1->Action = 6;
-			canBounce = false;
+			canBounce[co2->PlayerNum] = false;
 		}
 
-		if (dropdashTimer >= 15) 
+		if (dropdashTimer[co2->PlayerNum] >= 15)
+		{
 			QueueSound_DualEntity(8206, (ObjectMaster*)ed1, 1, 0, 2);
+		}
 	}
 	else
 	{
-		dropdashTimer = 0;
-		canChargeDropDash = false;
-		canBounce = false;
+		dropdashTimer[co2->PlayerNum] = 0;
+		canChargeDropDash[co2->PlayerNum] = false;
+		canBounce[co2->PlayerNum] = false;
 	}
 
 	Sonic_ChecksForDamage_h.Original(ed1, ed2, co2, sco2);
 
-	if (dropdashTimer > 15 && (ed1->Action == 1 || ed1->Action == 0)) // Walk or Idle
+	if ((ed1->Action == 6 || ed1->Action == 70) && !canChargeDropDash[co2->PlayerNum])
+	{
+		canBounce[co2->PlayerNum] = true;
+	}
+
+	if (dropdashTimer[co2->PlayerNum] > 15 && (ed1->Action == 1 || ed1->Action == 0)) // Walk or Idle
 	{
 		ed1->Status |= (Status_Attack | Status_Ball);
-		dropdashSpeed = 7 + floor(min((dropdashTimer - 15) / 60, 2));
 		
 		// Release Spindash code
 		ed1->Action = 4;
-		co2->Speed.x = dropdashSpeed;
+		co2->Speed.x = 7 + floor(min((dropdashTimer[co2->PlayerNum] - 15) / 60, 2));
 		co2->AnimInfo.Next = 12;
 		PlaySoundProbably(8203, 0, 0, 0);
 
-		canSomersault = false;
+		canSomersault[co2->PlayerNum] = false;
 	}
 }
 
