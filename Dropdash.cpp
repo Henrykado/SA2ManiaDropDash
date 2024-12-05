@@ -16,6 +16,8 @@ bool canBounce[2] = { true, true };
 std::string dropdashButton;
 bool dropdashBounce;
 bool fallDropdash;
+bool railDropdash;
+float dropdashBaseSpeed;
 bool sonicCanDropdash;
 bool shadowCanDropdash;
 bool amyCanDropdash;
@@ -177,14 +179,17 @@ void Sonic_ChecksForDamage_r(EntityData1* ed1, EntityData2* ed2, CharObj2Base* c
 		canBounce[co2->PlayerNum] = true;
 	}
 
-	if (dropdashTimer[co2->PlayerNum] > 15 && (ed1->Action == 1 || ed1->Action == 0)) // Walk or Idle
+	if (dropdashTimer[co2->PlayerNum] > 15 && (ed1->Action == 1 || ed1->Action == 0 || (railDropdash && ed1->Action == 71))) // Walk or Idle or Grind
 	{
-		ed1->Status |= (Status_Attack | Status_Ball);
-		
 		// Release Spindash code
-		ed1->Action = 4;
-		co2->Speed.x = 7 + floor(min((dropdashTimer[co2->PlayerNum] - 15) / 60, 2));
-		co2->AnimInfo.Next = 12;
+		co2->Speed.x = dropdashBaseSpeed + floor(min((dropdashTimer[co2->PlayerNum] - 15) / 60, 2));
+		
+		if (ed1->Action != 71) { // Rail Grind Action
+			ed1->Status |= (Status_Attack | Status_Ball);
+			
+			ed1->Action = 4;
+			co2->AnimInfo.Next = 12;
+		}
 		PlaySoundProbably(8203, 0, 0, 0);
 
 		canSomersault[co2->PlayerNum] = false;
@@ -200,6 +205,8 @@ extern "C"
 		dropdashButton = config->getString("", "dropdashButton", "Y");
 		dropdashBounce = config->getBool("", "dropdashBounce", false);
 		fallDropdash = config->getBool("", "fallDropdash", false);
+		railDropdash = config->getBool("", "railDropdash", true);
+		dropdashBaseSpeed = config->getFloat("", "dropdashBaseSpeed", 7.0f);
 		sonicCanDropdash = config->getBool("", "sonicCanDropdash", true);
 		shadowCanDropdash = config->getBool("", "shadowCanDropdash", true);
 		amyCanDropdash = config->getBool("", "amyCanDropdash", true);
